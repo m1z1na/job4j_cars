@@ -1,44 +1,23 @@
 package ru.job4j_cars.repository;
 
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.boot.MetadataSources;
-import org.hibernate.boot.registry.StandardServiceRegistry;
-import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
-import org.hibernate.query.Query;
-
-
 import java.util.List;
 import java.util.Optional;
 
+import lombok.AllArgsConstructor;
+import java.util.Map;
 
-public class UserRepository implements AutoCloseable {
-    private final StandardServiceRegistry registry = new StandardServiceRegistryBuilder()
-            .configure().build();
-    private SessionFactory sf = new MetadataSources(registry)
-            .buildMetadata().buildSessionFactory();
 
-    public UserRepository(SessionFactory sf) {
-        this.sf = sf;
-    }
+@AllArgsConstructor
+public class UserRepository {
+    private final CrudRepository crudRepository;
 
     /**
      * Сохранить в базе.
      * @param user пользователь.
      * @return пользователь с id.
      */
-    public User create(User user){
-        Session session = sf.openSession();
-        try {
-            session.beginTransaction();
-            session.save(user);
-            session.getTransaction().commit();
-
-        } catch (Exception e) {
-            session.getTransaction().rollback();
-        }
-
-
+    public User create(User user) {
+        crudRepository.run(session -> session.persist(user));
         return user;
     }
 
@@ -47,22 +26,7 @@ public class UserRepository implements AutoCloseable {
      * @param user пользователь.
      */
     public void update(User user) {
-
-        Session session = sf.openSession();
-        try {
-            session.beginTransaction();
-            session.createQuery(
-                    "UPDATE auto_user SET login = :flogin WHERE id = :fId")
-                    .setParameter("flogin", "new login")
-                    .setParameter("fId", user.getId())
-                    .executeUpdate();
-            session.getTransaction().commit();
-
-        } catch (Exception e) {
-            session.getTransaction().rollback();
-        }
-        session.close();
-
+        crudRepository.run(session -> session.merge(user));
     }
 
     /**
@@ -70,21 +34,10 @@ public class UserRepository implements AutoCloseable {
      * @param userId ID
      */
     public void delete(int userId) {
-
-        Session session = sf.openSession();
-        try {
-            session.beginTransaction();
-            session.createQuery(
-                    "DELETE auto_user WHERE id = :fId")
-                    .setParameter("fId", userId)
-                    .executeUpdate();
-            session.getTransaction().commit();
-
-        } catch (Exception e) {
-            session.getTransaction().rollback();
-        }
-        session.close();
-
+        crudRepository.run(
+                "delete from User where id = :fId",
+                Map.of("fId", userId)
+        );
     }
 
     /**
@@ -92,27 +45,18 @@ public class UserRepository implements AutoCloseable {
      * @return список пользователей.
      */
     public List<User> findAllOrderById() {
-        Session session = sf.openSession();
-        session.beginTransaction();
-        List<User> result = session.createQuery("from auto_user").list();
-        session.getTransaction().commit();
-        session.close();
-        return result;
+        return crudRepository.query("from User order by id asc", User.class);
     }
 
     /**
      * Найти пользователя по ID
      * @return пользователь.
      */
-    public Optional<User> findById( int id) {
-        Session session = sf.openSession();
-        session.beginTransaction();
-        Query query = session.createQuery("from auto_user as i where i.id = :fId", User.class);
-        query.setParameter("fId", id);
-        Optional result = query.list().stream().findFirst();
-        session.getTransaction().commit();
-        session.close();
-        return result;
+    public Optional<User> findById(int userId) {
+        return crudRepository.optional(
+                "from User where id = :fId", User.class,
+                Map.of("fId", userId)
+        );
     }
 
     /**
@@ -121,14 +65,10 @@ public class UserRepository implements AutoCloseable {
      * @return список пользователей.
      */
     public List<User> findByLikeLogin(String key) {
-        Session session = sf.openSession();
-        session.beginTransaction();
-        Query query = session.createQuery("from auto_user as i where i.login = :login", User.class );
-        query.setParameter("login", key);
-        List<User> result = query.list();
-        session.getTransaction().commit();
-        session.close();
-        return result;
+        return crudRepository.query(
+                "from User where login like :fKey", User.class,
+                Map.of("fKey", "%" + key + "%")
+        );
     }
 
     /**
@@ -136,19 +76,10 @@ public class UserRepository implements AutoCloseable {
      * @param login login.
      * @return Optional or user.
      */
-    public Optional findByLogin(String login) {
-        Session session = sf.openSession();
-        session.beginTransaction();
-        Query query = session.createQuery("from auto_user i where i.login = :login");
-        query.setParameter("login", login);
-        Optional result = query.list().stream().findFirst();
-        session.getTransaction().commit();
-        session.close();
-        return result;
-    }
-
-    @Override
-    public void close() throws Exception {
-        StandardServiceRegistryBuilder.destroy(registry);
+    public Optional<User> findByLogin(String login) {
+        return crudRepository.optional(
+                "from User where login = :fLogin", User.class,
+                Map.of("fLogin", login)
+        );
     }
 }
