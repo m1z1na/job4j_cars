@@ -16,17 +16,13 @@ import java.util.List;
 public class Post {
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
-    @Column(name="id")
     private Long id;
-    @Column(name="description")
     private String description;
-
 
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name="created")
     private LocalDateTime created;
 
     @OneToMany(cascade = CascadeType.ALL)
